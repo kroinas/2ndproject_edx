@@ -1,0 +1,382 @@
+---
+title: "2nd_Harvard_project"
+author: "Konstantinos Roinas"
+date: "1/6/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+
+\
+\
+\
+
+
+
+**INTRODUCTION**
+
+In this project we will work with adult.csv dataset from kaggle.
+https://www.kaggle.com/wenruliu/adult-income-dataset
+
+For the needs of our project we have upload this csv in this url
+https://github.com/kroinas/2ndproject_edx/raw/main/adult.csv
+
+So lets load our dataset
+
+```{r}
+urlfile="https://github.com/kroinas/2ndproject_edx/raw/main/adult.csv"
+income<-read.csv(url(urlfile))
+```
+
+Lets see the dimensions and class of our dataset.
+```{r}
+dim(income)
+class(income)
+```
+
+we see that we have a dataframe of 32561 samples and 15 columns.
+Lets see our columns.
+
+```{r}
+head(income)
+```
+
+We have columns like race, sex,marital status,education, hours.per.week working etc. and finally a column income.
+Lets see what can be the contents of this column.
+
+```{r}
+unique(income$income)
+```
+
+There are only 2 possible values in income <=50K (low) and >50K (high).
+\
+
+The scope of this project will be to estimate the income using some of the columns as predictors.
+
+
+\
+\
+\
+
+
+
+
+
+**ANALYSIS**
+
+Lets try produce some graphs now to check distributions of our samples.
+
+For this and for sure throughout the project we will need package tidyverse in case is not installed.
+
+```{r}
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+library(tidyverse)
+```
+
+```{r}
+income%>%group_by(race)%>%summarize(race,count=n())%>%ggplot(aes(race))+geom_bar()+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+income%>%group_by(sex)%>%summarize(sex,count=n())%>%ggplot(aes(sex))+geom_bar()+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ income%>%group_by(education)%>%summarize(education,count=n())%>%ggplot(aes(education))+geom_bar()+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ income%>%group_by(marital.status)%>%summarize(marital.status,count=n())%>%ggplot(aes(marital.status))+geom_bar()+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ income%>%group_by(age)%>%summarize(age,count=n())%>%ggplot(aes(age,width=10))+geom_bar()+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ ```
+ 
+We see that two thirds of our samples are men and the majority also belong to white race. With angle 90 we turn x text 90 degrees in order not overlap.
+ 
+ 
+\
+\
+ 
+ 
+ 
+FINDING OUR PREDICTORS
+
+Lets see if age affects income
+
+```{r}
+income%>%group_by(age)%>%summarize(age,income)%>%ggplot(aes(income,age))+geom_boxplot()
+```
+
+It is clear that income >50K is more usual to older people. So yes age is a predictor.
+
+\
+
+
+Lets examine sex now.We will create a 2x2 table setting the dimension names.
+```{r}
+income_sex<- table(income$sex,income$income)
+names(dimnames(income_sex)) <- c("sex", "income")
+income_sex%>%plot(sex,income)
+```
+
+From this plot is clear high income is more common between men. So that is our second predictor.
+
+
+\
+
+
+Regarding native country we observed that 90% of dataset is 'United States'.
+
+```{r}
+dim(income%>%filter(native.country=="United-States"))
+```
+
+So we do not think worth to take it into account as predictor.
+
+\
+
+
+
+We will examine now if race affects income
+```{r}
+income_race<- table(income$race,income$income)
+names(dimnames(income_race)) <- c("race", "income")
+```
+
+Trying to find the percentage of low income (<=50K) in each race.
+```{r}
+income_race<-cbind(income_race,rowSums(income_race))
+percentage_low_income<-income_race[,1]/income_race[,3]*100
+as.data.frame(percentage_low_income)
+```
+
+Here we divided first column (low income number of samples per race) with the third one that is the total number of samples per race. And transform it to dataframe for a better visualization.
+We see for example 74 of 'white' or 'Asian-Pac-Islander' with low income while 
+this reach 87-90 on rest races. So yes race is a predictor.
+
+
+\
+
+
+Another column that we suspect as predictor is education. Lets plot
+high and low incomes appearances in our dataset depending on education.
+
+```{r}
+income_education<- table(income$education,income$income)
+income_education<-as.data.frame(income_education)
+colnames(income_education)<-c("education","income","Freq")
+income_education%>%group_by(education)%>%ggplot(aes(education,Freq,fill=income))+geom_point(aes(color=income), size=5)+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+We distinguish color with income and enlarge our points for having clear the income with size parameter.
+
+We see that for some education classes (like Doctorate, masters) high income is more common, while in the majority no.
+Also in some of the rest the two incomes are close (like 1st-4th or 5th-6th), while in ohers low incomes are much more common (like in HS-grad or Some-collge).
+So yes education stands for another predictor.
+
+
+
+\
+
+
+A final variable we suspect is occupation. Lets plot a figure to realise if could be predictor.
+
+```{r}
+income%>%group_by(occupation)%>%summarize(occupation,income)%>%ggplot(aes(occupation,income))+geom_count()+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+Here n stands for the number of lines in our dataset. It is clear that while for some occupation classes (like Exec-managerial or Prof-specialty) numbers between the 2 classes of income are similar, in other occupations (Adm-clerical for example) the difference is huge (in favor of low income). So yes seems to work as a predictor also.
+
+
+
+
+\
+\
+\
+
+
+
+**APPLYING ML MODELS / RESULTS**
+
+It is now time build our models using the predictors announced before. We will use 2 models and these ones will be knn and rpart (decision tree).
+
+First of all we have to load caret library if it is not existing as well as create our train and test data sets. For the last according to Pareto principle is better use a ratio 80/20 (80 train).
+
+
+```{r}
+if(!require(caret)) install.packages("caret",repos="http://cran.us.r-project.org")
+library(caret)
+test_index <- createDataPartition(income$income, times = 1, p = 0.2, list=FALSE)
+train_set <- income%>% slice(-test_index)
+test_set<-income%>% slice(test_index)
+```
+
+
+
+\
+\
+
+
+
+RPART TRAINING
+
+```{r}
+train_rpart <- train(income~ education+age+race+sex+occupation,method = "rpart", tuneGrid = data.frame(cp = seq(0, 0.02, len = 4)),data = train_set)
+```
+
+cp is a parameter used in decision trees that more or less tells us till where will continue splitting.
+It is used to control the size of the decision tree and to select the optimal tree size. If the cost of adding another variable to the decision tree from the current node is above the value of cp, then tree building does not continue.
+
+
+```{r}
+plot(train_rpart)
+train_rpart$bestTune
+```
+
+We see the optimal value of cp is 0.006666667 and gives an accuracy just above 80%.
+
+To visualize our tree we give the following commands:
+
+```{r}
+plot(train_rpart$finalModel,margin = 0.1)
+text(train_rpart$finalModel,cex = 0.75)
+```
+
+To explain a bit how tree works, it is asked if age<29.5. If answer is yes we go left, so income is <=50K. If answer is no we go right finding another question. SexMale<0.5? This means is Female? If answer is yes again go left and find income <=50K. If not go right and find the question if is not(<0.5..) Exec-managerial in occupation and so on.
+
+
+
+
+
+
+
+
+
+\
+\
+
+
+
+KNN TRAINING
+
+In k-NN classification, the output is a class membership. An object is classified by a plurality vote of its neighbors, with the object being assigned to the class most common among its k nearest neighbors 
+
+```{r}
+train_knn <- train(income ~ education+age+race+sex+occupation,method = "knn", tuneGrid = data.frame(k = seq(15, 51, 2)),data = train_set)
+train_knn$bestTune
+y_hat_knn<-predict(train_knn,test_set)
+confusionMatrix(y_hat_knn,as.factor(test_set$income))$overall["Accuracy"]
+```
+
+Here we see the best k is from the last values. In general we set odd values not too big not too small.
+
+Then we used our trained model to predict the income for test set and finally we calculated accuracy.
+
+We used as.factor inside matrix for test_set$income, as it is required to be of this class the values we compare (while its normal class is 'character').
+
+```{r}
+class(test_set$income)
+```
+
+This model also gives us 80% accuracy as we see (similar to the one of rpart).
+
+
+\
+\
+
+
+TRYING INCREASE MODELS' ACCURACY
+
+
+In order identify variables that affect income, we run a simple rf (random forest) to take advantage of its varImp feature.
+This feature indicates which variable affects more our result.
+
+```{r}
+train_rf <- train(income ~ ., method = "rf", data=income)
+varImp(train_rf)
+```
+
+
+We see that income is affected strongly from marital.status, capital.gain or loss. Education.num is related to education that already use.
+Age is within the results of varImp, but race or sex are very low.
+Capital gain or loss could be substituted from capital.profit=capital.gain-capital.loss
+So from our models we will throw away sex and race and will add capital.profit,marital.status,hours.per.week (the more you work the more the income sounds logical).
+Here we have to mention fnlwgt. We really do not understand why is here as it is the finalweight. The number of real population that represents each line. We will ignore it.
+
+
+But lets create first the profit in both train and test sets
+
+```{r}
+train_set<-train_set%>%mutate(capital.profit=capital.gain-capital.loss)
+test_set<-test_set%>%mutate(capital.profit=capital.gain-capital.loss)
+```
+
+
+It is time train our first model (rpart) with the predictor changes
+
+```{r}
+train_rpart <- train(income~ education+age+occupation+capital.profit+marital.status+hours.per.week,method = "rpart", tuneGrid = data.frame(cp = seq(0, 0.02, len = 4)),data = train_set)
+plot(train_rpart)
+y_hat_rpart<-predict(train_rpart,test_set)
+confusionMatrix(y_hat_rpart,as.factor(test_set$income))
+plot(train_rpart$finalModel,margin = 0.1)
+text(train_rpart$finalModel,cex = 0.75)
+```
+
+
+Trying explain the tree: is marital status Married-civ.spouse? If yes, is capital.profit less than 7074, then income is <=50K and so on.
+
+We passed 84% much better than before (cp same as before).
+
+\
+
+
+We will repeat now our second model knn with the updated predictors. We will change a bit k to be always odd but include higher values.
+We remember last time was the max value 50 more or less.
+
+
+```{r}
+train_knn <- train(income~ education+age+occupation+marital.status+capital.profit+hours.per.week,method = "knn",tuneGrid = data.frame(k = seq(5, 101, 8)), data=train_set)
+train_knn$bestTune
+```
+
+
+We see this time best k is 21. In general while in rpart cp is very stable, k in knn we have seen it is varying.
+Also while there is a rule saying best k is sqrt(N) and here N is close to 30000, we did not see applies here (as it had to be k= 170 in our case).
+
+Lets calculate the prediction in test set and check the accuracy.
+
+```{r}
+y_hat_knn<-predict(train_knn,test_set)
+confusionMatrix(y_hat_knn,as.factor(test_set$income))
+```
+
+
+
+\
+\
+\
+
+
+
+
+
+**CONCLUSIONS**
+
+Seems rpart is much faster (training takes 5 mins while knn runs for 2-3 hours) while both are more or less same accurate close to 85%.
+
+Here to mention that while was not rested but as was used to identify the predictors, RF (random forest) was desperately slow in training, taking  whole day more or less to run. The HW used was i5 processor with 8 GB ram (DDR3).
+
+We did not set seed, as we wanted run them 2-3 times to see the class of result and not accuracy of second digit for example.
+
+Both seem to have 95% more or less sensitivity and close to 53% specificity.
+Having as positive scenario income <=50K, sensitivity means the capability of model to correctly identify these cases of low income, while specificity is the capability of model identify the high incomes that are the more rare cases. This happens as the high income samples in dataset are much less.
+
+We have to mention that train control did not provide any improvement on results. We tried a 'cv' (cross validation) of 10 folds.This means our training models 10 times split train set (internally in test and train set), 
+differently each time to do a better training. It is a method used to avoid overfitting. Overfitting we have when accuracy is very high more than 90% in train set that falls dramatically in test set. But in our models trainControl did not improve results, we understand we have not overfitting.In general results between 80 and 90% in prediction are considered very good results.
+We do not believe can do something better on selecting predictors. Never can have a model with 100% accuracy.
+
+What could be done more (as future work continuation of the present one), would be try further ML models like RF,LDA,QDA for example.
+
+We tried provide the maximum detail possible in our steps but on the other hand is not a tutorial of ML but a project to apply models in a given dataset to check their accuracy. Our target was having a right equilibrium on that matter. Hope we managed it. 
+
+We have to mention something about the structure of the report. We tried follow the closest possible what was asked but we had a structure in our mind for how to present our work. So maybe some parts that appear like missing (for example key steps) that cannot be found in introduction but of course the reader can find them in analysis section or even in 'APPLYING ML MODELS' section.
+
+Finally maybe the use of first plural person used throughout the project sounds strange to some readers but is what usually used by the author. Of course is a personal and not group work.
+
+
+
+
+
